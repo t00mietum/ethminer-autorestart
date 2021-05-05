@@ -1,0 +1,48 @@
+#!/bin/bash
+
+##	History
+##		- 20210423 t00mietum: Created.
+##	Notes:
+##		- The only reason sudo is needed, is also the only reason these scripts exist at all:
+##        to work with cron to auto-start at boot, and restart every hour.
+##	Copyright and license:
+##		Copyright (c) 2021 t00mietum.
+##		License GPLv3+: GNU GPL version 3 or later, full text at:
+##		    https://www.gnu.org/licenses/gpl-3.0.en.html
+##		There is no warranty, to the extent permitted by law.
+##	Donations:
+##		Donations are welcome at:
+##		XMR: 44LiTd9eJZbBULNvzLsVUxYaJjcT7dxUPfBCwk8qbY1DN3nnsYBYomqWkhoe1t9RuAfGCJauZS2xw85PZPtPR5MR791cdqx
+##		ETH: 0x01226C328A1d8085156b624D1DA78dC8ff954e8C
+##		BTC: bc1q2urqexl49w4t9e7xd9fwg7jpnkdunhle3chec4
+
+set -e
+
+## Validate installation
+if [[ ! -d /usr/local/bin/et ]]; then echo -e "The 'et-' suite of scripts in not installed correctly. Read 'readme.md'.\n"; exit 1; fi
+
+## Validate sudo
+#if [[ "$EUID" != "0"  ]]; then echo -e "Must run as root or sudo.\n"; exit 1; fi
+
+## Get sudo
+#if [[ "$EUID" != "0"  ]]; then echo -e "Must run as root or sudo.\n"; exit 1; fi
+echo "[ Getting sudo ... ]"
+sudo echo "[ Sudo got ... ]"
+
+## Verify or create symlinks
+[[ ! -f  /usr/local/bin/et-interactive  ]]  &&  sudo ln -s  /usr/local/bin/et-interactive  /usr/local/bin/et-interactive
+[[ ! -f  /usr/local/bin/et-start        ]]  &&  sudo ln -s  /usr/local/bin/et/et-start     /usr/local/bin/et-start
+[[ ! -f  /usr/local/bin/et-stop         ]]  &&  sudo ln -s  /usr/local/bin/et/et-start     /usr/local/bin/et-stop
+
+## Mark script as NOT executable so it will run as scheduled (if it is scheduled)
+echo "[ Disabling ETH mining auto-restart ... ]"
+sudo chmod ugo-x /usr/local/bin/et/et
+
+## Kill process
+echo "[ Showing and killing any existing miners (no output means no existing mining) ... ]"
+sudo ps aux | grep -i ethminer | grep -iPv "grep|bash|tee|watch|tail" || true
+sudo killall ethminer 2>/dev/null || true
+sleep 5
+sudo killall ethminer -s 9 2>/dev/null || true
+
+echo

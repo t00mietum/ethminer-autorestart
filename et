@@ -1,0 +1,98 @@
+#!/bin/bash
+
+##	Purpose:
+##		- Don't call directly for ethminer.
+##		- Main mining wrapper.
+##		- Update this script with your public Ethereum key, your rig ID, and your mining pool address.
+##		- et-start will set this execute bit to true and run.
+##		- et-stop will kill ethminer and set this execute bit to false.
+##		- cron job will execute this if execute bit is true.
+##	Notes:
+##		- This should only ever be run by et-start, et-stop, or cron.
+##	History:
+##		- 20210423 t00mietum: Created.
+##	Copyright and license:
+##		Copyright (c) 2021 t00mietum.
+##		License GPLv3+: GNU GPL version 3 or later, full text at:
+##		    https://www.gnu.org/licenses/gpl-3.0.en.html
+##		There is no warranty, to the extent permitted by law.
+##	Donations:
+##		Donations are welcome at:
+##		XMR: 44LiTd9eJZbBULNvzLsVUxYaJjcT7dxUPfBCwk8qbY1DN3nnsYBYomqWkhoe1t9RuAfGCJauZS2xw85PZPtPR5MR791cdqx
+##		ETH: 0x01226C328A1d8085156b624D1DA78dC8ff954e8C
+##		BTC: bc1q2urqexl49w4t9e7xd9fwg7jpnkdunhle3chec4
+
+
+function doIt(){
+
+	## Validate
+	if [[ "$EUID" != "0"  ]]; then echo -e "\nMust run as root or sudo.\n"; exit 1; fi
+
+	## Constants
+	local -r publicWallet_Eth=""                                       ## <-- PUT YOUR PUBLIC ETH KEY HERE
+	local -r workerName="$(hostname)"                                       ## <-- PUT YOUR RIG ID HERE (or leave as-is - will use hostname which is a good idea).
+	local -r gpuFlag="--cuda"                                               ## <-- --cuda or
+	local -r poolScheme="stratum1+ssl"                                      ## <-- This is probably OK for ethermine.org.
+	local -r poolHost="eu1.ethermine.org"                                   ## <-- PUT YOUR POOL ADDRESS AND PORT...
+	local -r poolPort="5555"                                                ## <-- ...HERE
+	local -r exeName="ethminer"                                             ## None of this is guaranteed to work with anything else, but stranger things have happened.
+	local -r binSpec="$(dirname "$0")/bin/${exeName}"                       ## Again, change at your own risk!
+	local -r logDir="/var/log/${exeName}"                                   ## You can change this but it is also coded other places. If you do change, consider putting in a single "config" script, and invoking via 'source' at the beginning of each of these scripts.
+
+	## Verify/create the log dir
+	[[ ! -d "${logDir}" ]] && mkdir -p "${logDir}"
+
+	## Create a temp log file
+	local tmpFile="$(mktemp)"; touch "${tmpFile}"
+
+	## Show and kill any existing ethminer process(es); log output to temp out-of-band logfile to be integrated later.
+	echo
+	echo "Showing and killing any existing miners (no output means no existing) ..." | ts "%Y%m%d-%H%M%S" | tee -a "${tmpFile}"
+	(ps aux | grep -i "${exeName}" | grep -iPv "grep|bash|tee|watch|tail" || true) | ts "%Y%m%d-%H%M%S" | tee -a "${tmpFile}"
+	(killall "${exeName}" 2>/dev/null || true) | ts "%Y%m%d-%H%M%S" | tee -a "${tmpFile}"
+	sleep 5
+	(killall "${exeName}" -s 9 2>/dev/null || true) | ts "%Y%m%d-%H%M%S" | tee -a "${tmpFile}"
+
+	## Rotate logs; delete the last one
+	[[ -f "${logDir}/${exeName}_99.log" ]] && rm "${logDir}/${exeName}_99.log"
+
+	## Increment up the remaining
+	local -i i
+	local -i j
+	for ((i=99; i>0; i--)); do
+		j=$((i+1))
+		iStr="${i}"; [[ $i -lt 10 ]] && iStr="0${iStr}"
+		jStr="${j}"; [[ $j -lt 10 ]] && jStr="0${jStr}"
+		[[ -f "${logDir}/${exeName}_${jStr}.log" ]] && rm "${logDir}/${exeName}_${jStr}.log"
+		[[ -f "${logDir}/${exeName}_${iStr}.log" ]] && mv "${logDir}/${exeName}_${iStr}.log" "${logDir}/${exeName}_${jStr}.log"
+	done
+
+	## Make what we've logged so far into a temp file, the actual new top log file.
+	local -r logFile="${logDir}/${exeName}_01.log"
+	[[ -f "${logFile}" ]] && rm "${logFile}"
+	mv  "${tmpFile}"  "${logFile}"
+	echo | tee -a "${logFile}"
+	echo "Forking mining job to background. Can see output one of two ways:"
+	echo ""
+	echo "sudo watch --color -- \"tail -n 45 '/var/log/ethminer/ethminer_01.log'\""
+	echo "sudo screen -rd eth"
+	echo ""
+
+	## Create and run a temp script, to manage slightly too ugly command line of running and logging within a connectable 'screen'.
+	cd "$(dirname "${binSpec}")"
+	cat <<- EOF > .et.tmp
+	#!/bin/bash
+	echo "Executing: \"${binSpec}\" ${gpuFlag} --pool ${poolScheme}://${publicWallet_Eth}.${workerName}@${poolHost}:${poolPort}" | ts "%Y%m%d-%H%M%S" | tee -a "${logFile}"
+	"${binSpec}" ${gpuFlag} --pool ${poolScheme}://${publicWallet_Eth}.${workerName}@${poolHost}:${poolPort} 2>&1 | ts "%Y%m%d-%H%M%S" | tee -a "${logFile}"
+	EOF
+	chmod +x .et.tmp
+	screen -dmS eth ./.et.tmp
+
+}
+
+
+## Enhance path just in case
+export PATH="$PATH:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin:/0-0/common/exec/local:/0-0/common/exec/local/app/appimage:/0-0/common/exec/synced_local-copies/util/0_crossplatform:/0-0/common/exec/synced_local-copies/util/0_crossplatform/0_include:/0-0/common/exec/synced_local-copies/util/linux/bash:/0-0/common/exec/synced_local-copies/util/linux/bash/includes:/0-0/common/exec/synced_local-copies/util/linux/bash/0_include:/0-0/common/exec/synced_local-copies/util/linux/bin"
+
+set -e
+doIt

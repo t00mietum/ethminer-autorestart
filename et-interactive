@@ -1,0 +1,48 @@
+#!/bin/bash
+
+##  Purpose:
+##		- This is more like a typical user executable we're all familiar with:
+##			- You run it.
+##			- You see the output sroll by.
+##			- You hit CTRL+Break, and it stops.
+##		- The big difference is: it's actually running as a system process in the background, and gets restarted every hour.
+##		- Even if your entire user session crashes, it keeps going.
+##		- Only by pressing CTRL+Break in the system screen session named 'eth', will it stop, and disable hourly restarts.
+##	Notes:
+##		- The only reason sudo is needed, is also the only reason these scripts exist at all:
+##        to work with cron to auto-start at boot, and restart every hour.
+##	History
+##		- 20210428 t00mietum: Created.
+##	Donations:
+##		Donations are welcome at:
+##		XMR: 44LiTd9eJZbBULNvzLsVUxYaJjcT7dxUPfBCwk8qbY1DN3nnsYBYomqWkhoe1t9RuAfGCJauZS2xw85PZPtPR5MR791cdqx
+##		ETH: 0x01226C328A1d8085156b624D1DA78dC8ff954e8C
+##		BTC: bc1q2urqexl49w4t9e7xd9fwg7jpnkdunhle3chec4
+
+set -e
+echo
+
+## Validate installation
+if [[ ! -d /usr/local/bin/et ]]; then echo -e "The 'et-' suite of scripts in not installed correctly. Read 'readme.md'.\n"; exit 1; fi
+
+## Validate sudo
+#if [[ "$EUID" != "0"  ]]; then echo -e "Must run as root or sudo.\n"; exit 1; fi
+
+## Get sudo
+echo "[ Getting sudo ... ]"
+sudo echo "[ Sudo got ... ]"
+
+## Verify or create symlinks
+[[ ! -f  /usr/local/bin/et-interactive  ]]  &&  sudo ln -s  /usr/local/bin/et-interactive  /usr/local/bin/et-interactive
+[[ ! -f  /usr/local/bin/et-start        ]]  &&  sudo ln -s  /usr/local/bin/et/et-start     /usr/local/bin/et-start
+[[ ! -f  /usr/local/bin/et-stop         ]]  &&  sudo ln -s  /usr/local/bin/et/et-start     /usr/local/bin/et-stop
+
+## Start and give time to spin up
+sudo et-start
+sleep 2
+
+## Watch log.
+watch --color -- "echo 'Last 25 lines of log output ...'; echo '-------------------------------------------------------------------------------'; sudo tail -n 25 '/var/log/ethminer/ethminer_01.log'; echo '-------------------------------------------------------------------------------'; echo 'When ready to stop mining, you must press CTRL+Break.\nOtherwise, mining will survive almost anything, even user logoff or session crash.\nAltenatively, run et-stop from another terminal, even via ssh.'"
+
+## Stop mining
+sudo et-stop
