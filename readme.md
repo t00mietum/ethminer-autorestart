@@ -32,12 +32,12 @@ It's a small collection of simple bash scripts. It works whether you have dedica
 
 ```
 cd $(mktemp -d)
-git
-nano et   ## Update with your eth public key, GPU type, rig id, pool address
+git clone https://github.com/t00mietum/ethminer-autorestart
 sudo mkdir -p /usr/local/bin/et
-sudo mv * /usr/local/bin/et/
-sudo chmod +x /usr/local/bin/et/*
-sudo ln
+sudo mv ethminer-autorestart/* /usr/local/bin/et/
+sudo chown -R root:root /usr/local/bin/et
+sudo chmod 770 /usr/local/bin/et/*
+sudo nano /usr/local/bin/et/et   ## Update with your eth public key, GPU type, rig id, pool address
 ```
 
 Next, copy your ethminer `bin` directory, under the `et` directory. You'll neet sudo or root permissions to do so.
