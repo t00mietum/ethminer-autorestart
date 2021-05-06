@@ -15,7 +15,7 @@
 
 ## Purpose
 
-This is an boot-time, automatic restarting, and logging wrapper for the popular linux (and Windows) Ethereum GPU miner, [Ethminer](https://github.com/ethereum-mining/ethminer).
+This is a boot-time, automatic restarting, and logging wrapper for the popular linux (and Windows) Ethereum GPU miner, [Ethminer](https://github.com/ethereum-mining/ethminer).
 
 It's a small collection of simple bash scripts. It works whether you have dedicated miners, or a desktop/part-time miner.
 
